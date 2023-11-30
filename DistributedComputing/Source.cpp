@@ -2,6 +2,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <omp.h>
+#include <chrono>
+#include <iostream>
+
 
 //#define MATRIX_SIZE 4
 
@@ -156,6 +159,7 @@ int main() {
         sizeof(float) * MATRIX_SIZE * MATRIX_SIZE, NULL, NULL);
 
     // Выполнение LU-разложения матрицы на GPU
+    auto startGPU = std::chrono::high_resolution_clock::now();
     clSetKernelArg(kernelLU, 0, sizeof(cl_mem), &bufferA);
     clSetKernelArg(kernelLU, 1, sizeof(cl_mem), &bufferL);
     clSetKernelArg(kernelLU, 2, sizeof(cl_mem), &bufferU);
@@ -163,6 +167,8 @@ int main() {
 
     size_t globalSizeLU[2] = { MATRIX_SIZE, MATRIX_SIZE };
     clEnqueueNDRangeKernel(queue, kernelLU, 2, NULL, globalSizeLU, NULL, 0, NULL, NULL);
+    auto endGPU = std::chrono::high_resolution_clock::now();
+    double GPUworkingTime = std::chrono::duration<double, std::milli>(endGPU - startGPU).count();
 
     clEnqueueReadBuffer(queue, bufferL, CL_TRUE, 0, sizeof(float) * MATRIX_SIZE * MATRIX_SIZE, matrixL, 0, NULL, NULL);
     clEnqueueReadBuffer(queue, bufferU, CL_TRUE, 0, sizeof(float) * MATRIX_SIZE * MATRIX_SIZE, matrixU, 0, NULL, NULL);
@@ -181,7 +187,11 @@ int main() {
     float* solution = (float*)malloc(sizeof(float) * MATRIX_SIZE * MATRIX_SIZE);
     //float solution[MATRIX_SIZE];
 
+    auto startCPU = std::chrono::high_resolution_clock::now();
     solveLinearSystem(matrixL, matrixU, matrixB, solution, MATRIX_SIZE);
+    auto endCPU = std::chrono::high_resolution_clock::now();
+    double CPUParallelWorkingTime = std::chrono::duration<double, std::milli>(endGPU - startGPU).count();
+
 
     // Проверка невырожденности матрицы A
     float determinant = computeDeterminant(matrixU, MATRIX_SIZE);
@@ -196,6 +206,9 @@ int main() {
     else {
         printf("Matrix A is singular (det(A) = 0), cannot solve the system.\n");
     }
+
+    std::cout << "GPU working Time: " << GPUworkingTime / 1000 << " milliseconds" << std::endl;
+    std::cout << "CPU parallel worling Time: " << CPUParallelWorkingTime / 1000 << " milliseconds" << std::endl;
 
     // Освобождение памяти
     clReleaseMemObject(bufferL);
