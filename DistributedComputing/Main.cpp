@@ -186,12 +186,7 @@ int main() {
     // –ешение системы линейных уравнений Ax = B
     float* solution = (float*)malloc(sizeof(float) * MATRIX_SIZE * MATRIX_SIZE);
     //float solution[MATRIX_SIZE];
-
-    auto startCPU = std::chrono::high_resolution_clock::now();
-    solveLinearSystem(matrixL, matrixU, matrixB, solution, MATRIX_SIZE);
-    auto endCPU = std::chrono::high_resolution_clock::now();
-    double CPUParallelWorkingTime = std::chrono::duration<double, std::milli>(endGPU - startGPU).count();
-
+    double CPUParallelWorkingTime;
 
     // ѕроверка невырожденности матрицы A
     float determinant = computeDeterminant(matrixU, MATRIX_SIZE);
@@ -202,6 +197,12 @@ int main() {
         for (int i = 0; i < MATRIX_SIZE; ++i) {
             printf("%f\n", solution[i]);
         }
+
+        auto startCPU = std::chrono::high_resolution_clock::now();
+        solveLinearSystem(matrixL, matrixU, matrixB, solution, MATRIX_SIZE);
+        auto endCPU = std::chrono::high_resolution_clock::now();
+        CPUParallelWorkingTime = std::chrono::duration<double, std::milli>(endCPU - startCPU).count();
+
     }
     else {
         printf("Matrix A is singular (det(A) = 0), cannot solve the system.\n");
