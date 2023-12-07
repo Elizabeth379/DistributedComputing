@@ -6,26 +6,24 @@
 #include <iostream>
 
 
-//#define MATRIX_SIZE 4
-
 const char* luDecompositionKernelSource =
-"__kernel void luDecomposition(__global float* A, __global float* L, __global float* U, int width) {\n"
-"    int gidX = get_global_id(0);\n"
-"    int gidY = get_global_id(1);\n"
-"    if (gidX < width && gidY < width) {\n"
-"        if (gidY <= gidX) {\n"
-"            float sum = 0.0f;\n"
-"            for (int k = 0; k < gidY; ++k) {\n"
-"                sum += L[gidX * width + k] * U[k * width + gidY];\n"
-"            }\n"
-"            U[gidY * width + gidX] = (gidX == gidY) ? 1.0f : (A[gidY * width + gidX] - sum);\n"
+"__kernel void luDecomposition(__global float* A, __global float* L, __global float* U, const int N) {\n"
+"    int i, j, k;\n"
+"\n"
+"    for (k = 0; k < N; k++) {\n"
+"        float Akk = A[k * N + k];\n"
+"        L[k * N + k] = 1.0f;\n"
+"        U[k * N + k] = Akk;\n"
+"\n"
+"        for (i = k + 1; i < N; i++) {\n"
+"            L[i * N + k] = A[i * N + k] / Akk;\n"
+"            U[k * N + i] = A[k * N + i];\n"
 "        }\n"
-"        if (gidY >= gidX) {\n"
-"            float sum = 0.0f;\n"
-"            for (int k = 0; k < gidX; ++k) {\n"
-"                sum += L[gidY * width + k] * U[k * width + gidX];\n"
+"\n"
+"        for (i = k + 1; i < N; i++) {\n"
+"            for (j = k + 1; j < N; j++) {\n"
+"                A[i * N + j] -= L[i * N + k] * U[k * N + j];\n"
 "            }\n"
-"            L[gidY * width + gidX] = (A[gidY * width + gidX] );\n"
 "        }\n"
 "    }\n"
 "}\n";
@@ -176,7 +174,6 @@ int main() {
     printMatrix("Matrix U", matrixU, MATRIX_SIZE, MATRIX_SIZE);
 
     float* matrixResult = (float*)calloc(MATRIX_SIZE * MATRIX_SIZE, sizeof(float));
-    //float matrixResult[MATRIX_SIZE * MATRIX_SIZE];
     matrixMultiply(matrixL, matrixU, matrixResult, MATRIX_SIZE, MATRIX_SIZE);
 
     printMatrix("Matrix Result (L * U)", matrixResult, MATRIX_SIZE, MATRIX_SIZE);
@@ -199,6 +196,7 @@ int main() {
         solveLinearSystem(matrixL, matrixU, matrixB, solution, MATRIX_SIZE);
         auto endCPU = std::chrono::high_resolution_clock::now();
         CPUParallelWorkingTime = std::chrono::duration<double, std::milli>(endCPU - startCPU).count();
+        std::cout << "CPU parallel worling Time: " << CPUParallelWorkingTime / 1000 << " milliseconds" << std::endl;
 
     }
     else {
@@ -206,7 +204,6 @@ int main() {
     }
 
     std::cout << "GPU working Time: " << GPUworkingTime / 1000 << " milliseconds" << std::endl;
-    std::cout << "CPU parallel worling Time: " << CPUParallelWorkingTime / 1000 << " milliseconds" << std::endl;
 
     // Освобождение памяти
     clReleaseMemObject(bufferL);
