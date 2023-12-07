@@ -86,12 +86,40 @@ void solveLinearSystem(float* L, float* U, float* B, float* result, int size) {
     free(y_thread);
 }
 
-float computeDeterminant(float* U, int size) {
-    float determinant = 1.0f;
-    for (int i = 0; i < size; ++i) {
-        determinant *= U[i * size + i];
+// Функция для вычисления определителя матрицы
+float determinant(float* matrix, int size) {
+    if (size == 1) {
+        return matrix[0];
     }
-    return determinant;
+
+    if (size == 2) {
+        return matrix[0] * matrix[3] - matrix[1] * matrix[2];
+    }
+
+    float det = 0;
+    float sign = 1;
+
+    for (int i = 0; i < size; i++) {
+        // Используем динамический массив для минора
+        float* minor = (float*)calloc((size - 1) * (size - 1), sizeof(float));
+
+        for (int j = 1; j < size; j++) {
+            for (int k = 0, col = 0; k < size; k++) {
+                if (k != i) {
+                    minor[(j - 1) * (size - 1) + col++] = matrix[j * size + k];
+                }
+            }
+        }
+
+        det += sign * matrix[i] * determinant(minor, size - 1);
+
+        // Освобождение памяти, выделенной под минор
+        free(minor);
+
+        sign = -sign;
+    }
+
+    return det;
 }
 
 
@@ -122,6 +150,10 @@ int main() {
             scanf_s("%f", &matrixA[i * MATRIX_SIZE + j]);
         }
     }
+
+    // Вычисление определителя
+    float det = determinant(matrixA, MATRIX_SIZE);
+    printf("Determinant: %f\n", det);
 
     // Ввод вектора B
     printf("Enter the vector B (%d elements):\n", MATRIX_SIZE);
@@ -183,8 +215,7 @@ int main() {
     double CPUParallelWorkingTime;
 
     // Проверка невырожденности матрицы A
-    float determinant = computeDeterminant(matrixU, MATRIX_SIZE);
-    if (determinant != 0.0f) {
+    if (det != 0.0f) {
         printf("Matrix A is non-singular (det(A) != 0)\n");
 
         printf("Solution of Ax = B:\n");
