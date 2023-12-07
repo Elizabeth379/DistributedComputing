@@ -113,8 +113,8 @@ int main() {
     scanf_s("%d", &MATRIX_SIZE);
 
     // Динамическое выделение памяти для матрицы A и вектора B
-    float* matrixA = (float*)malloc(sizeof(float) * MATRIX_SIZE * MATRIX_SIZE);
-    float* matrixB = (float*)malloc(sizeof(float) * MATRIX_SIZE);
+    float* matrixA = (float*)calloc(MATRIX_SIZE * MATRIX_SIZE, sizeof(float));
+    float* matrixB = (float*)calloc(MATRIX_SIZE, sizeof(float));
 
     // Ввод матрицы A
     printf("Enter the matrix A (%dx%d):\n", MATRIX_SIZE, MATRIX_SIZE);
@@ -148,10 +148,8 @@ int main() {
     cl_kernel kernelLU = clCreateKernel(luDecompositionProgram, "luDecomposition", NULL);
 
     // Выделение памяти для L и U матриц
-    float* matrixL = (float*)malloc(sizeof(float) * MATRIX_SIZE * MATRIX_SIZE);
-    float* matrixU = (float*)malloc(sizeof(float) * MATRIX_SIZE * MATRIX_SIZE);
-    //float matrixL[MATRIX_SIZE * MATRIX_SIZE];
-    //float matrixU[MATRIX_SIZE * MATRIX_SIZE];
+    float* matrixL = (float*)calloc(MATRIX_SIZE * MATRIX_SIZE, sizeof(float));
+    float* matrixU = (float*)calloc(MATRIX_SIZE * MATRIX_SIZE, sizeof(float));
 
     cl_mem bufferL = clCreateBuffer(context, CL_MEM_READ_WRITE,
         sizeof(float) * MATRIX_SIZE * MATRIX_SIZE, NULL, NULL);
@@ -177,15 +175,14 @@ int main() {
     printMatrix("Matrix L", matrixL, MATRIX_SIZE, MATRIX_SIZE);
     printMatrix("Matrix U", matrixU, MATRIX_SIZE, MATRIX_SIZE);
 
-    float* matrixResult = (float*)malloc(sizeof(float) * MATRIX_SIZE * MATRIX_SIZE);
+    float* matrixResult = (float*)calloc(MATRIX_SIZE * MATRIX_SIZE, sizeof(float));
     //float matrixResult[MATRIX_SIZE * MATRIX_SIZE];
     matrixMultiply(matrixL, matrixU, matrixResult, MATRIX_SIZE, MATRIX_SIZE);
 
     printMatrix("Matrix Result (L * U)", matrixResult, MATRIX_SIZE, MATRIX_SIZE);
 
     // Решение системы линейных уравнений Ax = B
-    float* solution = (float*)malloc(sizeof(float) * MATRIX_SIZE * MATRIX_SIZE);
-    //float solution[MATRIX_SIZE];
+    float* solution = (float*)calloc(MATRIX_SIZE, sizeof(float));
     double CPUParallelWorkingTime;
 
     // Проверка невырожденности матрицы A
@@ -218,6 +215,13 @@ int main() {
     clReleaseProgram(luDecompositionProgram);
     clReleaseCommandQueue(queue);
     clReleaseContext(context);
+
+    free(matrixA);
+    free(matrixB);
+    free(matrixL);
+    free(matrixU);
+    free(matrixResult);
+    free(solution);
 
     return 0;
 }
