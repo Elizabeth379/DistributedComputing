@@ -86,7 +86,19 @@ void solveLinearSystem(float* L, float* U, float* B, float* result, int size) {
     free(y_thread);
 }
 
-// Функция для вычисления определителя матрицы
+// Функция для вычисления определителя на основе матрицы U с распараллеливанием
+long double determinantFromLU(float* matrixU, int size) {
+    long double det = 1.0f;
+
+#pragma omp parallel for reduction(*:det) num_threads(omp_get_max_threads())
+    for (int i = 0; i < size; ++i) {
+        det *= matrixU[i * size + i];
+    }
+
+    return det;
+}
+
+// Функция для вычисления определителя матрицы последовательно
 float determinant(float* matrix, int size) {
     if (size == 1) {
         return matrix[0];
@@ -122,7 +134,22 @@ float determinant(float* matrix, int size) {
     return det;
 }
 
+void fillMatrixRandom(float* matrix, int size) {
 
+    for (int i = 0; i < size; ++i) {
+        for (int j = 0; j < size; ++j) {
+            // Генерация случайного числа в диапазоне от 0 до 1
+            matrix[i * size + j] = (float)rand() / RAND_MAX;
+        }
+    }
+}
+
+void fillVectorRandom(float* vector, int size) {
+
+    for (int i = 0; i < size; ++i) {
+        vector[i] = rand() % 10;
+    }
+}
 
 int main() {
     cl_platform_id platform;
@@ -148,6 +175,8 @@ int main() {
     float* matrixB = (float*)calloc(MATRIX_SIZE, sizeof(float));
 
     // Ввод матрицы A
+    //fillMatrixRandom(matrixA, MATRIX_SIZE);
+
     printf("Enter the matrix A (%dx%d):\n", MATRIX_SIZE, MATRIX_SIZE);
     for (int i = 0; i < MATRIX_SIZE; ++i) {
         for (int j = 0; j < MATRIX_SIZE; ++j) {
@@ -159,11 +188,10 @@ int main() {
         }
     }
 
-    // Вычисление определителя
-    float det = determinant(matrixA, MATRIX_SIZE);
-    printf("Determinant: %f\n", det);
 
     // Ввод вектора B
+    //fillVectorRandom(matrixB, MATRIX_SIZE);
+
     printf("Enter the vector B (%d elements):\n", MATRIX_SIZE);
     for (int i = 0; i < MATRIX_SIZE; ++i) {
         printf("B[%d]: ", i);
@@ -224,6 +252,21 @@ int main() {
     matrixMultiply(matrixL, matrixU, matrixResult, MATRIX_SIZE, MATRIX_SIZE);
 
     printMatrix("Matrix Result (L * U)", matrixResult, MATRIX_SIZE, MATRIX_SIZE);
+
+    // Вычисление определителя
+    auto startCPUdet = std::chrono::high_resolution_clock::now();
+    long double det = determinantFromLU(matrixU, MATRIX_SIZE);
+    auto endCPUdet = std::chrono::high_resolution_clock::now();
+    //Последовательное вычисление определителя
+    auto startdet = std::chrono::high_resolution_clock::now();
+    float detP = determinant(matrixA, MATRIX_SIZE);
+    auto enddet = std::chrono::high_resolution_clock::now();
+    printf("Determinant: %f\n", det);
+    double CPUParallelWorkingTimeDet = std::chrono::duration<double, std::milli>(endCPUdet - startCPUdet).count();
+    double TimeDet = std::chrono::duration<double, std::milli>(enddet - startdet).count();
+    std::cout << "CPU parallel calculating determinant time: " << CPUParallelWorkingTimeDet / 1000 << " milliseconds" << std::endl;
+    std::cout << "Sequentially calculating determinant time: " << TimeDet / 1000 << " milliseconds" << std::endl;
+
 
     // Решение системы линейных уравнений Ax = B
     float* solution = (float*)calloc(MATRIX_SIZE, sizeof(float));
