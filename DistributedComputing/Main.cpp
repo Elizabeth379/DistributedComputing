@@ -42,6 +42,7 @@ void printMatrix(const char* name, float* matrix, int rows, int cols) {
 }
 
 void matrixMultiply(float* L, float* U, float* result, int rows, int cols) {
+#pragma omp parallel for collapse(3)
     for (int i = 0; i < rows; i++)
         for (int j = 0; j < cols; j++)
         {
@@ -249,9 +250,14 @@ int main() {
     printMatrix("Matrix U", matrixU, MATRIX_SIZE, MATRIX_SIZE);
 
     float* matrixResult = (float*)calloc(MATRIX_SIZE * MATRIX_SIZE, sizeof(float));
+    //Умножение матриц
+    auto startCPUmMultiply = std::chrono::high_resolution_clock::now();
     matrixMultiply(matrixL, matrixU, matrixResult, MATRIX_SIZE, MATRIX_SIZE);
+    auto endCPUmMultiply = std::chrono::high_resolution_clock::now();
+    double CPUParallelWorkingTimemMultiply = std::chrono::duration<double, std::milli>(endCPUmMultiply - startCPUmMultiply).count();
 
     printMatrix("Matrix Result (L * U)", matrixResult, MATRIX_SIZE, MATRIX_SIZE);
+    std::cout << "CPU parallel matrix multiply time: " << CPUParallelWorkingTimemMultiply / 1000 << " milliseconds" << std::endl;
 
     // Вычисление определителя
     auto startCPUdet = std::chrono::high_resolution_clock::now();
@@ -285,14 +291,14 @@ int main() {
         for (int i = 0; i < MATRIX_SIZE; ++i) {
             printf("%f\n", solution[i]);
         }
-        std::cout << "CPU parallel worling Time: " << CPUParallelWorkingTime / 1000 << " milliseconds" << std::endl;
+        std::cout << "CPU parallel solution of SoLE working time: " << CPUParallelWorkingTime / 1000 << " milliseconds" << std::endl;
 
     }
     else {
         printf("Matrix A is singular (det(A) = 0), cannot solve the system.\n");
     }
 
-    std::cout << "GPU working Time: " << GPUworkingTime / 1000 << " milliseconds" << std::endl;
+    std::cout << "GPU LU-decomposition working time: " << GPUworkingTime / 1000 << " milliseconds" << std::endl;
 
     // Освобождение памяти
     clReleaseMemObject(bufferL);
