@@ -135,8 +135,13 @@ int main() {
     cl_command_queue queue = clCreateCommandQueueWithProperties(context, device, NULL, NULL);
     // Ввод размера матрицы
     int MATRIX_SIZE;
-    printf("Enter the size of the matrix A: ");
-    scanf_s("%d", &MATRIX_SIZE);
+    do {
+        printf("Enter the size of the matrix A: ");
+        if (scanf_s("%d", &MATRIX_SIZE) != 1 || MATRIX_SIZE <= 0) {
+            printf("Invalid input. Please enter a positive integer.\n");
+            while (getchar() != '\n');  // Очистка буфера ввода
+        }
+    } while (MATRIX_SIZE <= 0);
 
     // Динамическое выделение памяти для матрицы A и вектора B
     float* matrixA = (float*)calloc(MATRIX_SIZE * MATRIX_SIZE, sizeof(float));
@@ -147,7 +152,10 @@ int main() {
     for (int i = 0; i < MATRIX_SIZE; ++i) {
         for (int j = 0; j < MATRIX_SIZE; ++j) {
             printf("A[%d][%d]: ", i, j);
-            scanf_s("%f", &matrixA[i * MATRIX_SIZE + j]);
+            while (scanf_s("%f", &matrixA[i * MATRIX_SIZE + j]) != 1) {
+                printf("Invalid input. Please enter a valid floating-point number.\n");
+                while (getchar() != '\n');
+            }
         }
     }
 
@@ -159,7 +167,14 @@ int main() {
     printf("Enter the vector B (%d elements):\n", MATRIX_SIZE);
     for (int i = 0; i < MATRIX_SIZE; ++i) {
         printf("B[%d]: ", i);
-        scanf_s("%f", &matrixB[i]);
+
+        // Проверка ввода на float
+        while (scanf_s("%f", &matrixB[i]) != 1) {
+            printf("Invalid input. Please enter a valid floating-point number.\n");
+            // Очистка буфера ввода
+            while (getchar() != '\n');
+            printf("B[%d]: ", i);
+        }
     }
 
     printMatrix("Matrix A", matrixA, MATRIX_SIZE, MATRIX_SIZE);
@@ -218,15 +233,15 @@ int main() {
     if (det != 0.0f) {
         printf("Matrix A is non-singular (det(A) != 0)\n");
 
-        printf("Solution of Ax = B:\n");
-        for (int i = 0; i < MATRIX_SIZE; ++i) {
-            printf("%f\n", solution[i]);
-        }
-
         auto startCPU = std::chrono::high_resolution_clock::now();
         solveLinearSystem(matrixL, matrixU, matrixB, solution, MATRIX_SIZE);
         auto endCPU = std::chrono::high_resolution_clock::now();
         CPUParallelWorkingTime = std::chrono::duration<double, std::milli>(endCPU - startCPU).count();
+
+        printf("Solution of Ax = B:\n");
+        for (int i = 0; i < MATRIX_SIZE; ++i) {
+            printf("%f\n", solution[i]);
+        }
         std::cout << "CPU parallel worling Time: " << CPUParallelWorkingTime / 1000 << " milliseconds" << std::endl;
 
     }
