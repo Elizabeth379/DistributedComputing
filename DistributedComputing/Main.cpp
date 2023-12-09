@@ -152,6 +152,18 @@ void fillVectorRandom(float* vector, int size) {
     }
 }
 
+// Функция для сравнения на равенство матриц
+bool compareMatrices(float* matrixA, float* matrixB, int size) {
+    for (int i = 0; i < size; ++i) {
+        for (int j = 0; j < size; ++j) {
+            if (matrixA[i * size + j] != matrixB[i * size + j]) {
+                return false;  // Если найден хотя бы один несовпадающий элемент, вернуть false
+            }
+        }
+    }
+    return true;  // Если все элементы совпадают, вернуть true
+}
+
 int main() {
     cl_platform_id platform;
     clGetPlatformIDs(1, &platform, NULL);
@@ -258,7 +270,14 @@ int main() {
 
     printMatrix("Matrix Result (L * U)", matrixResult, MATRIX_SIZE, MATRIX_SIZE);
     std::cout << "CPU parallel matrix multiply time: " << CPUParallelWorkingTimemMultiply / 1000 << " milliseconds" << std::endl;
+    bool matricesEqual = compareMatrices(matrixA, matrixResult, MATRIX_SIZE);
 
+    if (matricesEqual) {
+        printf("Matrices A and L*U are equal.\n");
+    }
+    else {
+        printf("Matrices A and L*U are not equal.\n");
+    }
     // Вычисление определителя
     auto startCPUdet = std::chrono::high_resolution_clock::now();
     long double det = determinantFromLU(matrixU, MATRIX_SIZE);
