@@ -4,6 +4,7 @@
 #include <omp.h>
 #include <chrono>
 #include <iostream>
+#include <cmath>
 
 
 const char* luDecompositionKernelSource =
@@ -153,15 +154,16 @@ void fillVectorRandom(float* vector, int size) {
 }
 
 // Функция для сравнения на равенство матриц
-bool compareMatrices(float* matrixA, float* matrixB, int size) {
+bool compareMatrices(float* matrixA, float* matrixB, int size, float precision) {
     for (int i = 0; i < size; ++i) {
         for (int j = 0; j < size; ++j) {
-            if (matrixA[i * size + j] != matrixB[i * size + j]) {
-                return false;  // Если найден хотя бы один несовпадающий элемент, вернуть false
+            // Функция fabs() для получения абсолютного значения разницы между элементами
+            if (fabs(matrixA[i * size + j] - matrixB[i * size + j]) > precision) {
+                return false;  // Если разница больше заданной точности, вернуть false
             }
         }
     }
-    return true;  // Если все элементы совпадают, вернуть true
+    return true;  // Если все элементы совпадают с заданной точностью, вернуть true
 }
 
 int main() {
@@ -270,7 +272,7 @@ int main() {
 
     printMatrix("Matrix Result (L * U)", matrixResult, MATRIX_SIZE, MATRIX_SIZE);
     std::cout << "CPU parallel matrix multiply time: " << CPUParallelWorkingTimemMultiply / 1000 << " milliseconds" << std::endl;
-    bool matricesEqual = compareMatrices(matrixA, matrixResult, MATRIX_SIZE);
+    bool matricesEqual = compareMatrices(matrixA, matrixResult, MATRIX_SIZE, 0.00001);
 
     if (matricesEqual) {
         printf("Matrices A and L*U are equal.\n");
