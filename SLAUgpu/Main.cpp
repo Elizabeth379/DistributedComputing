@@ -199,8 +199,9 @@ int main() {
     cl_mem bufferU = clCreateBuffer(context, CL_MEM_READ_WRITE,
         sizeof(float) * MATRIX_SIZE * MATRIX_SIZE, NULL, NULL);
 
+    auto GPUstart = std::chrono::high_resolution_clock::now();               // Начало отсчета
+
     // Выполнение LU-разложения матрицы на GPU
-    auto startGPU = std::chrono::high_resolution_clock::now();
     clSetKernelArg(kernelLU, 0, sizeof(cl_mem), &bufferA);
     clSetKernelArg(kernelLU, 1, sizeof(cl_mem), &bufferL);
     clSetKernelArg(kernelLU, 2, sizeof(cl_mem), &bufferU);
@@ -212,8 +213,7 @@ int main() {
     }
     size_t globalSizeLU[2] = { globalSize, 1 };
     clEnqueueNDRangeKernel(queue, kernelLU, 2, NULL, globalSizeLU, NULL, 0, NULL, NULL);
-    auto endGPU = std::chrono::high_resolution_clock::now();
-    double GPUworkingTime = std::chrono::duration<double, std::milli>(endGPU - startGPU).count();
+    
 
     clEnqueueReadBuffer(queue, bufferL, CL_TRUE, 0, sizeof(float) * MATRIX_SIZE * MATRIX_SIZE, matrixL, 0, NULL, NULL);
     clEnqueueReadBuffer(queue, bufferU, CL_TRUE, 0, sizeof(float) * MATRIX_SIZE * MATRIX_SIZE, matrixU, 0, NULL, NULL);
@@ -229,7 +229,6 @@ int main() {
     double CPUParallelWorkingTimemMultiply = std::chrono::duration<double, std::milli>(endCPUmMultiply - startCPUmMultiply).count();
 
     //printMatrix("Matrix Result (L * U)", matrixResult, MATRIX_SIZE, MATRIX_SIZE);
-    std::cout << "CPU parallel matrix multiply time: " << CPUParallelWorkingTimemMultiply / 1000 << " milliseconds" << std::endl;
     bool matricesEqual = compareMatrices(matrixA, matrixResult, MATRIX_SIZE, 0.00001);
 
     if (matricesEqual) {
@@ -285,6 +284,10 @@ int main() {
             printf("%f\n", solutionGPU[i]);
         }
 
+        auto GPUend = std::chrono::high_resolution_clock::now();  // Конец отсчета
+        double GPUworkingTime = std::chrono::duration<double, std::milli>(GPUend - GPUstart).count();
+        std::cout << "GPU time: " << GPUworkingTime << " milliseconds" << std::endl;
+
         // Освобождение памяти для нового ядра
         clReleaseKernel(kernelSolve);
         clReleaseProgram(solveLinearSystemProgram);
@@ -299,7 +302,6 @@ int main() {
         printf("Matrix A is singular (det(A) = 0), cannot solve the system.\n");
     }
 
-    std::cout << "GPU LU-decomposition working time: " << GPUworkingTime / 1000 << " milliseconds" << std::endl;
        
 
     

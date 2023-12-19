@@ -271,7 +271,7 @@ int main() {
 
     auto endCPU = std::chrono::high_resolution_clock::now();  // Конец отсчета
     double CPUworkingTime = std::chrono::duration<double, std::milli>(endCPU - startCPU).count();
-    std::cout << "CPU time: " << CPUworkingTime / 1000 << " milliseconds" << std::endl;
+    std::cout << "CPU time: " << CPUworkingTime << " milliseconds" << std::endl;
 
     free(matrixA);
     free(matrixB);

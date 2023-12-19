@@ -244,6 +244,8 @@ int main() {
     cl_mem bufferU = clCreateBuffer(context, CL_MEM_READ_WRITE,
         sizeof(float) * MATRIX_SIZE * MATRIX_SIZE, NULL, NULL);
 
+    auto start = std::chrono::high_resolution_clock::now();               // Начало отсчета
+
     // Выполнение LU-разложения матрицы на GPU
     auto startGPU = std::chrono::high_resolution_clock::now();
     clSetKernelArg(kernelLU, 0, sizeof(cl_mem), &bufferA);
@@ -274,8 +276,8 @@ int main() {
     double CPUParallelWorkingTimemMultiply = std::chrono::duration<double, std::milli>(endCPUmMultiply - startCPUmMultiply).count();
 
     //printMatrix("Matrix Result (L * U)", matrixResult, MATRIX_SIZE, MATRIX_SIZE);
-    std::cout << "CPU parallel matrix multiply time: " << CPUParallelWorkingTimemMultiply / 1000 << " milliseconds" << std::endl;
-    bool matricesEqual = compareMatrices(matrixA, matrixResult, MATRIX_SIZE, 0.00001);
+    //std::cout << "CPU parallel matrix multiply time: " << CPUParallelWorkingTimemMultiply / 1000 << " milliseconds" << std::endl;
+    bool matricesEqual = compareMatrices(matrixA, matrixResult, MATRIX_SIZE, 0.00000000000001);
 
     if (matricesEqual) {
         printf("Matrices A and L*U are equal.\n");
@@ -315,14 +317,18 @@ int main() {
         for (int i = 0; i < MATRIX_SIZE; ++i) {
             printf("%f\n", solution[i]);
         }
-        std::cout << "CPU parallel solution of SoLE working time: " << CPUParallelWorkingTime / 1000 << " milliseconds" << std::endl;
+        //std::cout << "CPU parallel solution of SoLE working time: " << CPUParallelWorkingTime / 1000 << " milliseconds" << std::endl;
 
     }
     else {
         printf("Matrix A is singular (det(A) = 0), cannot solve the system.\n");
     }
 
-    std::cout << "GPU LU-decomposition working time: " << GPUworkingTime / 1000 << " milliseconds" << std::endl;
+    auto end = std::chrono::high_resolution_clock::now();  // Конец отсчета
+    double WorkingTime = std::chrono::duration<double, std::milli>(end - start).count();
+    std::cout << "CPU and GPU time: " << WorkingTime << " milliseconds" << std::endl;
+
+    //std::cout << "GPU LU-decomposition working time: " << GPUworkingTime / 1000 << " milliseconds" << std::endl;
 
     // Освобождение памяти
     clReleaseMemObject(bufferA);
