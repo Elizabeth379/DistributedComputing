@@ -251,7 +251,11 @@ int main() {
     clSetKernelArg(kernelLU, 2, sizeof(cl_mem), &bufferU);
     clSetKernelArg(kernelLU, 3, sizeof(int), &matrixSize);
 
-    size_t globalSizeLU[2] = { MATRIX_SIZE, MATRIX_SIZE };
+    int globalSize = MATRIX_SIZE;
+    if (MATRIX_SIZE > 152) {
+        globalSize = 152;
+    }
+    size_t globalSizeLU[2] = { globalSize, 1 };
     clEnqueueNDRangeKernel(queue, kernelLU, 2, NULL, globalSizeLU, NULL, 0, NULL, NULL);
     auto endGPU = std::chrono::high_resolution_clock::now();
     double GPUworkingTime = std::chrono::duration<double, std::milli>(endGPU - startGPU).count();
