@@ -190,9 +190,9 @@ int main() {
     float* matrixB = (float*)calloc(MATRIX_SIZE, sizeof(float));
 
     // Ввод матрицы A
-    //fillMatrixRandom(matrixA, MATRIX_SIZE);
+    fillMatrixRandom(matrixA, MATRIX_SIZE);
 
-    printf("Enter the matrix A (%dx%d):\n", MATRIX_SIZE, MATRIX_SIZE);
+    /*printf("Enter the matrix A (%dx%d):\n", MATRIX_SIZE, MATRIX_SIZE);
     for (int i = 0; i < MATRIX_SIZE; ++i) {
         for (int j = 0; j < MATRIX_SIZE; ++j) {
             printf("A[%d][%d]: ", i, j);
@@ -201,26 +201,26 @@ int main() {
                 while (getchar() != '\n');
             }
         }
-    }
+    }*/
 
 
     // Ввод вектора B
-    //fillVectorRandom(matrixB, MATRIX_SIZE);
+    fillVectorRandom(matrixB, MATRIX_SIZE);
 
-    printf("Enter the vector B (%d elements):\n", MATRIX_SIZE);
-    for (int i = 0; i < MATRIX_SIZE; ++i) {
-        printf("B[%d]: ", i);
+    //printf("Enter the vector B (%d elements):\n", MATRIX_SIZE);
+    //for (int i = 0; i < MATRIX_SIZE; ++i) {
+    //    printf("B[%d]: ", i);
 
-        // Проверка ввода на float
-        while (scanf_s("%f", &matrixB[i]) != 1) {
-            printf("Invalid input. Please enter a valid floating-point number.\n");
-            // Очистка буфера ввода
-            while (getchar() != '\n');
-            printf("B[%d]: ", i);
-        }
-    }
+    //    // Проверка ввода на float
+    //    while (scanf_s("%f", &matrixB[i]) != 1) {
+    //        printf("Invalid input. Please enter a valid floating-point number.\n");
+    //        // Очистка буфера ввода
+    //        while (getchar() != '\n');
+    //        printf("B[%d]: ", i);
+    //    }
+    //}
 
-    printMatrix("Matrix A", matrixA, MATRIX_SIZE, MATRIX_SIZE);
+    //printMatrix("Matrix A", matrixA, MATRIX_SIZE, MATRIX_SIZE);
     int matrixSize = MATRIX_SIZE;
     cl_mem bufferA = clCreateBuffer(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
         sizeof(float) * MATRIX_SIZE * MATRIX_SIZE, matrixA, NULL);
@@ -259,9 +259,8 @@ int main() {
     clEnqueueReadBuffer(queue, bufferL, CL_TRUE, 0, sizeof(float) * MATRIX_SIZE * MATRIX_SIZE, matrixL, 0, NULL, NULL);
     clEnqueueReadBuffer(queue, bufferU, CL_TRUE, 0, sizeof(float) * MATRIX_SIZE * MATRIX_SIZE, matrixU, 0, NULL, NULL);
 
-
-    printMatrix("Matrix L", matrixL, MATRIX_SIZE, MATRIX_SIZE);
-    printMatrix("Matrix U", matrixU, MATRIX_SIZE, MATRIX_SIZE);
+    //printMatrix("Matrix L", matrixL, MATRIX_SIZE, MATRIX_SIZE);
+    //printMatrix("Matrix U", matrixU, MATRIX_SIZE, MATRIX_SIZE);
 
     float* matrixResult = (float*)calloc(MATRIX_SIZE * MATRIX_SIZE, sizeof(float));
     //Умножение матриц
@@ -270,7 +269,7 @@ int main() {
     auto endCPUmMultiply = std::chrono::high_resolution_clock::now();
     double CPUParallelWorkingTimemMultiply = std::chrono::duration<double, std::milli>(endCPUmMultiply - startCPUmMultiply).count();
 
-    printMatrix("Matrix Result (L * U)", matrixResult, MATRIX_SIZE, MATRIX_SIZE);
+    //printMatrix("Matrix Result (L * U)", matrixResult, MATRIX_SIZE, MATRIX_SIZE);
     std::cout << "CPU parallel matrix multiply time: " << CPUParallelWorkingTimemMultiply / 1000 << " milliseconds" << std::endl;
     bool matricesEqual = compareMatrices(matrixA, matrixResult, MATRIX_SIZE, 0.00001);
 
@@ -286,13 +285,13 @@ int main() {
     auto endCPUdet = std::chrono::high_resolution_clock::now();
     //Последовательное вычисление определителя
     auto startdet = std::chrono::high_resolution_clock::now();
-    float detP = determinant(matrixA, MATRIX_SIZE);
+    //float detP = determinant(matrixA, MATRIX_SIZE);
     auto enddet = std::chrono::high_resolution_clock::now();
-    printf("Determinant: %f\n", det);
+    printf("Determinant: %Lf\n", det);
     double CPUParallelWorkingTimeDet = std::chrono::duration<double, std::milli>(endCPUdet - startCPUdet).count();
-    double TimeDet = std::chrono::duration<double, std::milli>(enddet - startdet).count();
-    std::cout << "CPU parallel calculating determinant time: " << CPUParallelWorkingTimeDet / 1000 << " milliseconds" << std::endl;
-    std::cout << "Sequentially calculating determinant time: " << TimeDet / 1000 << " milliseconds" << std::endl;
+    //double TimeDet = std::chrono::duration<double, std::milli>(enddet - startdet).count();
+    //std::cout << "CPU parallel calculating determinant time: " << CPUParallelWorkingTimeDet / 1000 << " milliseconds" << std::endl;
+    //std::cout << "Sequentially calculating determinant time: " << TimeDet / 1000 << " milliseconds" << std::endl;
 
 
     // Решение системы линейных уравнений Ax = B
@@ -322,6 +321,8 @@ int main() {
     std::cout << "GPU LU-decomposition working time: " << GPUworkingTime / 1000 << " milliseconds" << std::endl;
 
     // Освобождение памяти
+    clReleaseMemObject(bufferA);
+    clReleaseMemObject(bufferMatrixSize);
     clReleaseMemObject(bufferL);
     clReleaseMemObject(bufferU);
     clReleaseKernel(kernelLU);
