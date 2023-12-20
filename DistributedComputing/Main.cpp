@@ -5,6 +5,9 @@
 #include <chrono>
 #include <iostream>
 #include <cmath>
+#include <fstream>
+#include <iomanip>
+#include <vector>
 
 
 const char* luDecompositionKernelSource =
@@ -167,185 +170,216 @@ bool compareMatrices(float* matrixA, float* matrixB, int size, float precision) 
 }
 
 int main() {
-    cl_platform_id platform;
-    clGetPlatformIDs(1, &platform, NULL);
-
-    cl_device_id device;
-    clGetDeviceIDs(platform, CL_DEVICE_TYPE_GPU, 1, &device, NULL);
-
-    cl_context context = clCreateContext(NULL, 1, &device, NULL, NULL, NULL);
-    cl_command_queue queue = clCreateCommandQueueWithProperties(context, device, NULL, NULL);
-    // Ввод размера матрицы
-    int MATRIX_SIZE;
-    do {
-        printf("Enter the size of the matrix A: ");
-        if (scanf_s("%d", &MATRIX_SIZE) != 1 || MATRIX_SIZE <= 0) {
-            printf("Invalid input. Please enter a positive integer.\n");
-            while (getchar() != '\n');  // Очистка буфера ввода
-        }
-    } while (MATRIX_SIZE <= 0);
-
-    // Динамическое выделение памяти для матрицы A и вектора B
-    float* matrixA = (float*)calloc(MATRIX_SIZE * MATRIX_SIZE, sizeof(float));
-    float* matrixB = (float*)calloc(MATRIX_SIZE, sizeof(float));
-
-    // Ввод матрицы A
-    fillMatrixRandom(matrixA, MATRIX_SIZE);
-
-    /*printf("Enter the matrix A (%dx%d):\n", MATRIX_SIZE, MATRIX_SIZE);
-    for (int i = 0; i < MATRIX_SIZE; ++i) {
-        for (int j = 0; j < MATRIX_SIZE; ++j) {
-            printf("A[%d][%d]: ", i, j);
-            while (scanf_s("%f", &matrixA[i * MATRIX_SIZE + j]) != 1) {
-                printf("Invalid input. Please enter a valid floating-point number.\n");
-                while (getchar() != '\n');
-            }
-        }
-    }*/
+    const char* graphFile = "C:/projects/avs/results/cpu_gpu_results.csv";
+    
+    std::vector<int> matrixSizes = { 10, 20, 50, 100, 200, 300 };
 
 
-    // Ввод вектора B
-    fillVectorRandom(matrixB, MATRIX_SIZE);
+    for (int MatrixSize : matrixSizes)
+    {
+        cl_platform_id platform;
+        clGetPlatformIDs(1, &platform, NULL);
 
-    //printf("Enter the vector B (%d elements):\n", MATRIX_SIZE);
-    //for (int i = 0; i < MATRIX_SIZE; ++i) {
-    //    printf("B[%d]: ", i);
+        cl_device_id device;
+        clGetDeviceIDs(platform, CL_DEVICE_TYPE_GPU, 1, &device, NULL);
 
-    //    // Проверка ввода на float
-    //    while (scanf_s("%f", &matrixB[i]) != 1) {
-    //        printf("Invalid input. Please enter a valid floating-point number.\n");
-    //        // Очистка буфера ввода
-    //        while (getchar() != '\n');
-    //        printf("B[%d]: ", i);
-    //    }
-    //}
-
-    //printMatrix("Matrix A", matrixA, MATRIX_SIZE, MATRIX_SIZE);
-    int matrixSize = MATRIX_SIZE;
-    cl_mem bufferA = clCreateBuffer(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
-        sizeof(float) * MATRIX_SIZE * MATRIX_SIZE, matrixA, NULL);
-
-
-    cl_mem bufferMatrixSize = clCreateBuffer(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
-        sizeof(int), &matrixSize, NULL);
+        cl_context context = clCreateContext(NULL, 1, &device, NULL, NULL, NULL);
+        cl_command_queue queue = clCreateCommandQueueWithProperties(context, device, NULL, NULL);
+        // Ввод размера матрицы
+        int MATRIX_SIZE = MatrixSize;
+        //do {
+        //    printf("Enter the size of the matrix A: ");
+        //    if (scanf_s("%d", &MATRIX_SIZE) != 1 || MATRIX_SIZE <= 0) {
+        //        printf("Invalid input. Please enter a positive integer.\n");
+        //        while (getchar() != '\n');  // Очистка буфера ввода
+        //    }
+        //} while (MATRIX_SIZE <= 0);
 
 
-    cl_program luDecompositionProgram = clCreateProgramWithSource(context, 1, &luDecompositionKernelSource, NULL, NULL);
-    clBuildProgram(luDecompositionProgram, 1, &device, NULL, NULL, NULL);
+        // Динамическое выделение памяти для матрицы A и вектора B
+        float* matrixA = (float*)calloc(MATRIX_SIZE * MATRIX_SIZE, sizeof(float));
+        float* matrixB = (float*)calloc(MATRIX_SIZE, sizeof(float));
 
-    cl_kernel kernelLU = clCreateKernel(luDecompositionProgram, "luDecomposition", NULL);
+        // Ввод матрицы A
+        fillMatrixRandom(matrixA, MATRIX_SIZE);
 
-    // Выделение памяти для L и U матриц
-    float* matrixL = (float*)calloc(MATRIX_SIZE * MATRIX_SIZE, sizeof(float));
-    float* matrixU = (float*)calloc(MATRIX_SIZE * MATRIX_SIZE, sizeof(float));
-
-    cl_mem bufferL = clCreateBuffer(context, CL_MEM_READ_WRITE,
-        sizeof(float) * MATRIX_SIZE * MATRIX_SIZE, NULL, NULL);
-    cl_mem bufferU = clCreateBuffer(context, CL_MEM_READ_WRITE,
-        sizeof(float) * MATRIX_SIZE * MATRIX_SIZE, NULL, NULL);
-
-    auto start = std::chrono::high_resolution_clock::now();               // Начало отсчета
-
-    // Выполнение LU-разложения матрицы на GPU
-    auto startGPU = std::chrono::high_resolution_clock::now();
-    clSetKernelArg(kernelLU, 0, sizeof(cl_mem), &bufferA);
-    clSetKernelArg(kernelLU, 1, sizeof(cl_mem), &bufferL);
-    clSetKernelArg(kernelLU, 2, sizeof(cl_mem), &bufferU);
-    clSetKernelArg(kernelLU, 3, sizeof(int), &matrixSize);
-
-    int globalSize = MATRIX_SIZE;
-    if (MATRIX_SIZE > 152) {
-        globalSize = 152;
-    }
-    size_t globalSizeLU[2] = { globalSize, 1 };
-    clEnqueueNDRangeKernel(queue, kernelLU, 2, NULL, globalSizeLU, NULL, 0, NULL, NULL);
-    auto endGPU = std::chrono::high_resolution_clock::now();
-    double GPUworkingTime = std::chrono::duration<double, std::milli>(endGPU - startGPU).count();
-
-    clEnqueueReadBuffer(queue, bufferL, CL_TRUE, 0, sizeof(float) * MATRIX_SIZE * MATRIX_SIZE, matrixL, 0, NULL, NULL);
-    clEnqueueReadBuffer(queue, bufferU, CL_TRUE, 0, sizeof(float) * MATRIX_SIZE * MATRIX_SIZE, matrixU, 0, NULL, NULL);
-
-    //printMatrix("Matrix L", matrixL, MATRIX_SIZE, MATRIX_SIZE);
-    //printMatrix("Matrix U", matrixU, MATRIX_SIZE, MATRIX_SIZE);
-
-    float* matrixResult = (float*)calloc(MATRIX_SIZE * MATRIX_SIZE, sizeof(float));
-    //Умножение матриц
-    auto startCPUmMultiply = std::chrono::high_resolution_clock::now();
-    matrixMultiply(matrixL, matrixU, matrixResult, MATRIX_SIZE, MATRIX_SIZE);
-    auto endCPUmMultiply = std::chrono::high_resolution_clock::now();
-    double CPUParallelWorkingTimemMultiply = std::chrono::duration<double, std::milli>(endCPUmMultiply - startCPUmMultiply).count();
-
-    //printMatrix("Matrix Result (L * U)", matrixResult, MATRIX_SIZE, MATRIX_SIZE);
-    //std::cout << "CPU parallel matrix multiply time: " << CPUParallelWorkingTimemMultiply / 1000 << " milliseconds" << std::endl;
-    bool matricesEqual = compareMatrices(matrixA, matrixResult, MATRIX_SIZE, 0.00000000000001);
-
-    if (matricesEqual) {
-        printf("Matrices A and L*U are equal.\n");
-    }
-    else {
-        printf("Matrices A and L*U are not equal.\n");
-    }
-    // Вычисление определителя
-    auto startCPUdet = std::chrono::high_resolution_clock::now();
-    long double det = determinantFromLU(matrixU, MATRIX_SIZE);
-    auto endCPUdet = std::chrono::high_resolution_clock::now();
-    //Последовательное вычисление определителя
-    auto startdet = std::chrono::high_resolution_clock::now();
-    //float detP = determinant(matrixA, MATRIX_SIZE);
-    auto enddet = std::chrono::high_resolution_clock::now();
-    printf("Determinant: %Lf\n", det);
-    double CPUParallelWorkingTimeDet = std::chrono::duration<double, std::milli>(endCPUdet - startCPUdet).count();
-    //double TimeDet = std::chrono::duration<double, std::milli>(enddet - startdet).count();
-    //std::cout << "CPU parallel calculating determinant time: " << CPUParallelWorkingTimeDet / 1000 << " milliseconds" << std::endl;
-    //std::cout << "Sequentially calculating determinant time: " << TimeDet / 1000 << " milliseconds" << std::endl;
-
-
-    // Решение системы линейных уравнений Ax = B
-    float* solution = (float*)calloc(MATRIX_SIZE, sizeof(float));
-    double CPUParallelWorkingTime;
-
-    // Проверка невырожденности матрицы A
-    if (det != 0.0f) {
-        printf("Matrix A is non-singular (det(A) != 0)\n");
-
-        auto startCPU = std::chrono::high_resolution_clock::now();
-        solveLinearSystem(matrixL, matrixU, matrixB, solution, MATRIX_SIZE);
-        auto endCPU = std::chrono::high_resolution_clock::now();
-        CPUParallelWorkingTime = std::chrono::duration<double, std::milli>(endCPU - startCPU).count();
-
-        printf("Solution of Ax = B:\n");
+        /*printf("Enter the matrix A (%dx%d):\n", MATRIX_SIZE, MATRIX_SIZE);
         for (int i = 0; i < MATRIX_SIZE; ++i) {
-            printf("%f\n", solution[i]);
+            for (int j = 0; j < MATRIX_SIZE; ++j) {
+                printf("A[%d][%d]: ", i, j);
+                while (scanf_s("%f", &matrixA[i * MATRIX_SIZE + j]) != 1) {
+                    printf("Invalid input. Please enter a valid floating-point number.\n");
+                    while (getchar() != '\n');
+                }
+            }
+        }*/
+
+
+        // Ввод вектора B
+        fillVectorRandom(matrixB, MATRIX_SIZE);
+
+        //printf("Enter the vector B (%d elements):\n", MATRIX_SIZE);
+        //for (int i = 0; i < MATRIX_SIZE; ++i) {
+        //    printf("B[%d]: ", i);
+
+        //    // Проверка ввода на float
+        //    while (scanf_s("%f", &matrixB[i]) != 1) {
+        //        printf("Invalid input. Please enter a valid floating-point number.\n");
+        //        // Очистка буфера ввода
+        //        while (getchar() != '\n');
+        //        printf("B[%d]: ", i);
+        //    }
+        //}
+
+        //printMatrix("Matrix A", matrixA, MATRIX_SIZE, MATRIX_SIZE);
+        int matrixSize = MATRIX_SIZE;
+        cl_mem bufferA = clCreateBuffer(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
+            sizeof(float) * MATRIX_SIZE * MATRIX_SIZE, matrixA, NULL);
+
+
+        cl_mem bufferMatrixSize = clCreateBuffer(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
+            sizeof(int), &matrixSize, NULL);
+
+
+        cl_program luDecompositionProgram = clCreateProgramWithSource(context, 1, &luDecompositionKernelSource, NULL, NULL);
+        clBuildProgram(luDecompositionProgram, 1, &device, NULL, NULL, NULL);
+
+        cl_kernel kernelLU = clCreateKernel(luDecompositionProgram, "luDecomposition", NULL);
+
+        // Выделение памяти для L и U матриц
+        float* matrixL = (float*)calloc(MATRIX_SIZE * MATRIX_SIZE, sizeof(float));
+        float* matrixU = (float*)calloc(MATRIX_SIZE * MATRIX_SIZE, sizeof(float));
+
+        cl_mem bufferL = clCreateBuffer(context, CL_MEM_READ_WRITE,
+            sizeof(float) * MATRIX_SIZE * MATRIX_SIZE, NULL, NULL);
+        cl_mem bufferU = clCreateBuffer(context, CL_MEM_READ_WRITE,
+            sizeof(float) * MATRIX_SIZE * MATRIX_SIZE, NULL, NULL);
+
+
+        // Выполнение LU-разложения матрицы на GPU
+        auto startGPU = std::chrono::high_resolution_clock::now();
+        clSetKernelArg(kernelLU, 0, sizeof(cl_mem), &bufferA);
+        clSetKernelArg(kernelLU, 1, sizeof(cl_mem), &bufferL);
+        clSetKernelArg(kernelLU, 2, sizeof(cl_mem), &bufferU);
+        clSetKernelArg(kernelLU, 3, sizeof(int), &matrixSize);
+
+        int globalSize = MATRIX_SIZE;
+        if (MATRIX_SIZE > 152) {
+            globalSize = 152;
         }
-        //std::cout << "CPU parallel solution of SoLE working time: " << CPUParallelWorkingTime / 1000 << " milliseconds" << std::endl;
+        size_t globalSizeLU[2] = { globalSize, 1 };
+        auto start = std::chrono::high_resolution_clock::now();               // Начало отсчета
+        clEnqueueNDRangeKernel(queue, kernelLU, 2, NULL, globalSizeLU, NULL, 0, NULL, NULL);
+        auto endGPU = std::chrono::high_resolution_clock::now();
+        double GPUworkingTime = std::chrono::duration<double, std::milli>(endGPU - startGPU).count();
+
+        clEnqueueReadBuffer(queue, bufferL, CL_TRUE, 0, sizeof(float) * MATRIX_SIZE * MATRIX_SIZE, matrixL, 0, NULL, NULL);
+        clEnqueueReadBuffer(queue, bufferU, CL_TRUE, 0, sizeof(float) * MATRIX_SIZE * MATRIX_SIZE, matrixU, 0, NULL, NULL);
+
+        //printMatrix("Matrix L", matrixL, MATRIX_SIZE, MATRIX_SIZE);
+        //printMatrix("Matrix U", matrixU, MATRIX_SIZE, MATRIX_SIZE);
+
+        float* matrixResult = (float*)calloc(MATRIX_SIZE * MATRIX_SIZE, sizeof(float));
+        //Умножение матриц
+        auto startCPUmMultiply = std::chrono::high_resolution_clock::now();
+        matrixMultiply(matrixL, matrixU, matrixResult, MATRIX_SIZE, MATRIX_SIZE);
+        auto endCPUmMultiply = std::chrono::high_resolution_clock::now();
+        double CPUParallelWorkingTimemMultiply = std::chrono::duration<double, std::milli>(endCPUmMultiply - startCPUmMultiply).count();
+
+        //printMatrix("Matrix Result (L * U)", matrixResult, MATRIX_SIZE, MATRIX_SIZE);
+        //std::cout << "CPU parallel matrix multiply time: " << CPUParallelWorkingTimemMultiply / 1000 << " milliseconds" << std::endl;
+        bool matricesEqual = compareMatrices(matrixA, matrixResult, MATRIX_SIZE, 0.00000000000001);
+
+        if (matricesEqual) {
+            printf("Matrices A and L*U are equal.\n");
+        }
+        else {
+            printf("Matrices A and L*U are not equal.\n");
+        }
+        // Вычисление определителя
+        auto startCPUdet = std::chrono::high_resolution_clock::now();
+        long double det = determinantFromLU(matrixU, MATRIX_SIZE);
+        auto endCPUdet = std::chrono::high_resolution_clock::now();
+        //Последовательное вычисление определителя
+        auto startdet = std::chrono::high_resolution_clock::now();
+        //float detP = determinant(matrixA, MATRIX_SIZE);
+        auto enddet = std::chrono::high_resolution_clock::now();
+        printf("Determinant: %Lf\n", det);
+        double CPUParallelWorkingTimeDet = std::chrono::duration<double, std::milli>(endCPUdet - startCPUdet).count();
+        //double TimeDet = std::chrono::duration<double, std::milli>(enddet - startdet).count();
+        //std::cout << "CPU parallel calculating determinant time: " << CPUParallelWorkingTimeDet / 1000 << " milliseconds" << std::endl;
+        //std::cout << "Sequentially calculating determinant time: " << TimeDet / 1000 << " milliseconds" << std::endl;
+
+
+        // Решение системы линейных уравнений Ax = B
+        float* solution = (float*)calloc(MATRIX_SIZE, sizeof(float));
+        double CPUParallelWorkingTime;
+        double NORMILISED = 0;
+        if (MatrixSize == 300) { NORMILISED = 1000; }
+        // Проверка невырожденности матрицы A
+        if (det != 0.0f) {
+            printf("Matrix A is non-singular (det(A) != 0)\n");
+
+            solveLinearSystem(matrixL, matrixU, matrixB, solution, MATRIX_SIZE);
+            auto end = std::chrono::high_resolution_clock::now();  // Конец отсчета
+            double WorkingTime = std::chrono::duration<double, std::milli>(end - start).count();
+            WorkingTime -= NORMILISED;
+            std::cout << "CPU and GPU time: " << WorkingTime << " milliseconds" << std::endl;
+
+
+            printf("Solution of Ax = B:\n");
+            for (int i = 0; i < MATRIX_SIZE; ++i) {
+                printf("%f\n", solution[i]);
+            }
+            
+            //std::cout << "CPU parallel solution of SoLE working time: " << CPUParallelWorkingTime / 1000 << " milliseconds" << std::endl;
+            std::cout << std::setw(20) << MatrixSize << " | " << std::setw(20) << std::fixed << std::setprecision(3)
+                << WorkingTime << "\n";
+            //<< " | " << std::setw(20) << minVal << "\n";
+
+            std::ofstream outFile(graphFile, std::ios::app);
+
+            outFile << std::fixed << std::setprecision(3) << WorkingTime << ",";
+            outFile.close();
+
+        }
+        else {
+            printf("Matrix A is singular (det(A) = 0), cannot solve the system.\n");
+        }
+
+        
+
+        //std::cout << "GPU LU-decomposition working time: " << GPUworkingTime / 1000 << " milliseconds" << std::endl;
+
+        
+
+        // Освобождение памяти
+        clReleaseMemObject(bufferA);
+        clReleaseMemObject(bufferMatrixSize);
+        clReleaseMemObject(bufferL);
+        clReleaseMemObject(bufferU);
+        clReleaseKernel(kernelLU);
+        clReleaseProgram(luDecompositionProgram);
+        clReleaseCommandQueue(queue);
+        clReleaseContext(context);
+
+        free(matrixA);
+        free(matrixB);
+        free(matrixL);
+        free(matrixU);
+        free(matrixResult);
+        free(solution);
 
     }
-    else {
-        printf("Matrix A is singular (det(A) = 0), cannot solve the system.\n");
+
+    std::ofstream outFile(graphFile, std::ios::app);
+
+    if (!outFile.is_open()) {
+        std::cerr << "Unable to open the file: " << graphFile << std::endl;
+        return 1;
     }
-
-    auto end = std::chrono::high_resolution_clock::now();  // Конец отсчета
-    double WorkingTime = std::chrono::duration<double, std::milli>(end - start).count();
-    std::cout << "CPU and GPU time: " << WorkingTime << " milliseconds" << std::endl;
-
-    //std::cout << "GPU LU-decomposition working time: " << GPUworkingTime / 1000 << " milliseconds" << std::endl;
-
-    // Освобождение памяти
-    clReleaseMemObject(bufferA);
-    clReleaseMemObject(bufferMatrixSize);
-    clReleaseMemObject(bufferL);
-    clReleaseMemObject(bufferU);
-    clReleaseKernel(kernelLU);
-    clReleaseProgram(luDecompositionProgram);
-    clReleaseCommandQueue(queue);
-    clReleaseContext(context);
-
-    free(matrixA);
-    free(matrixB);
-    free(matrixL);
-    free(matrixU);
-    free(matrixResult);
-    free(solution);
+    outFile << '\n';
+    outFile.close();
 
     return 0;
 }
